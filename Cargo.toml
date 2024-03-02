@@ -1,0 +1,18 @@
+[package]
+name = "sensors-helium-1-rs"
+version = "0.1.0"
+authors = ["DeflateAwning <11021263+DeflateAwning@users.noreply.github.com>"]
+edition = "2021"
+license = "MIT OR Apache-2.0"
+
+[profile.release]
+debug = true
+
+[dependencies]
+esp32-hal = "0.18.0"
+esp-backtrace = { version = "0.11.0", features = ["esp32", "panic-handler", "exception-handler", "println"] }
+esp-println = { version = "0.9.0", features = ["esp32"] }
+
+[features]
+default = ["esp32-hal/xtal-40mhz"]
+
