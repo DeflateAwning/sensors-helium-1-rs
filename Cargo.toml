@@ -13,7 +13,8 @@ esp32-hal = "0.18.0"
 esp-backtrace = { version = "0.11.0", features = ["esp32", "panic-handler", "exception-handler", "println"] }
 esp-println = { version = "0.9.0", features = ["esp32"] }
 embedded-sensors = { version = "0.1.1", default-features = false, features = ["bh1750"] }
-lm75 = "1.0.0"
+# lm75 = "1.0.0" # couldn't make it work
+embedded-hal = "0.2.6" # for lm75, v1.0.0 breaks
 
 [features]
 default = ["esp32-hal/xtal-40mhz"]

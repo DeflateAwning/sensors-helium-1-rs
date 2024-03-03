@@ -6,9 +6,10 @@ use esp_backtrace as _;
 use esp_println::println;
 use embedded_sensors::bh1750::{Bh1750, config::MeasurementMode};
 use esp32_hal::i2c::I2C;
-// use lm75::{Lm75, Address};
+use embedded_hal::blocking::i2c::Read; // for read_temperature_c
 
 const BH1750_ADDRESS: u8 = 0x23;
+const LM75_ADDRESS: u8 = 0x48;
 
 #[entry]
 fn main() -> ! {
@@ -25,25 +26,17 @@ fn main() -> ! {
     // SDA=GPIO21, SCL=GPIO22
     let mut i2c_port = I2C::new(
         peripherals.I2C0,
-        io.pins.gpio21,
-        io.pins.gpio22,
+        io.pins.gpio21, // SDA
+        io.pins.gpio22, // SCL
         100u32.kHz(),
         &clocks,
     );
+
+    // setup the light sensor
     let mut light_sensor = Bh1750::new(BH1750_ADDRESS, &mut i2c_port).unwrap();
-
-
-    // light_sensor.set_measurement_mode(&mut i2c_port, MeasurementMode::OneTimeHighResolution2).unwrap();
     light_sensor.set_measurement_mode(&mut i2c_port, MeasurementMode::ContinuouslyHighResolution2).unwrap();
 
-    // let temperature_chip_dev = I2C::new(peripherals.I2C1, i2c_sda, i2c_scl, 100u32.kHz(), &clocks);
-    // let address = Address::default();
-    // let mut sensor = Lm75::new(temperature_chip_dev, address);
-    // let temp_celsius = sensor.read_temperature().unwrap();
-    // println!("Temperature: {}ºC", temp_celsius);
-
-
-    let mut loop_count: u16 = 1.212e2 as u16;
+    let mut loop_count: u16 = 0;
 
     println!("Booting...");
     loop {
@@ -64,12 +57,34 @@ fn main() -> ! {
         light_sensor.read(&mut i2c_port).unwrap();
         let light_val: f32 = light_sensor.light_level();
 
-        println!("Loop {loop_count}, light: {light_val}...",
+        let temp_celsius = read_temperature_c(&mut i2c_port, LM75_ADDRESS).unwrap();
+
+        println!("Loop {loop_count}, light: {light_val} lx, temp: {temp_celsius}...",
             loop_count=loop_count,
             light_val=light_val
         );
         delay.delay_ms(500u32);
 
         loop_count += 1;
+    }
+}
+
+pub fn read_temperature_c<T>(i2c: &mut T, address: u8) -> Result<f32, T::Error>
+where
+    T: Read,
+{
+    let mut buffer: [u8; 2] = [0u8; 2];
+    match i2c.read(address, &mut buffer) {
+        Ok(()) => {
+            let mut ret: f32 = 0.0;
+            
+            // check sign bit
+            if (buffer[0] & 0b1000_0000) != 0 {
+                ret = -128.0;
+            }
+            
+            Ok(ret + (buffer[0] & 0b0111_1111) as f32 + 0.5 * (buffer[0] & 0b1000_0000) as f32)
+        },
+        Err(e) => Err(e),
     }
 }
