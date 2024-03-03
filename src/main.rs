@@ -36,7 +36,7 @@ fn main() -> ! {
     let mut light_sensor = Bh1750::new(BH1750_ADDRESS, &mut i2c_port).unwrap();
     light_sensor.set_measurement_mode(&mut i2c_port, MeasurementMode::ContinuouslyHighResolution2).unwrap();
 
-    let mut loop_count: u16 = 0;
+    let mut loop_count: u128 = 0;
 
     println!("Booting...");
     loop {
@@ -83,6 +83,7 @@ where
                 ret = -128.0;
             }
             
+            // Source: https://github.com/elhep/stm_system_board_firmware/blob/a1b5af04b61ece350be88540e9c8bc34c01abd28/src/hardware/lm75a.rs#L4
             Ok(ret + (buffer[0] & 0b0111_1111) as f32 + 0.5 * (buffer[0] & 0b1000_0000) as f32)
         },
         Err(e) => Err(e),
