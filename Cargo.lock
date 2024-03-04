@@ -185,12 +185,18 @@ dependencies = [
 ]
 
 [[package]]
+name = "embedded-hal"
+version = "1.0.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "361a90feb7004eca4019fb28352a9465666b24f840f5c3cddf0ff13920590b89"
+
+[[package]]
 name = "embedded-sensors"
 version = "0.1.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "db67427cfee0804a9cb9e4b61b9db47e946573884ae03dc26d2795a2f86b1e31"
 dependencies = [
- "embedded-hal",
+ "embedded-hal 0.2.7",
  "nb 1.1.0",
 ]
 
@@ -255,7 +261,7 @@ dependencies = [
  "critical-section",
  "embassy-executor",
  "embedded-dma",
- "embedded-hal",
+ "embedded-hal 0.2.7",
  "enumset",
  "esp-hal-procmacros",
  "esp32",
@@ -414,6 +420,15 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "b4ce301924b7887e9d637144fdade93f9dfff9b60981d4ac161db09720d39aa5"
 dependencies = [
  "proc-macro2",
+]
+
+[[package]]
+name = "lm75"
+version = "1.0.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "430c2d95694c3f32c3ed0cd2f91e07c8a2935ca55697f174d9060a9eefa0ddf0"
+dependencies = [
+ "embedded-hal 1.0.0",
 ]
 
 [[package]]
@@ -577,11 +592,12 @@ checksum = "94143f37725109f92c262ed2cf5e59bce7498c01bcc1502d7b9afe439a4e9f49"
 name = "sensors-helium-1-rs"
 version = "0.1.0"
 dependencies = [
- "embedded-hal",
+ "embedded-hal 0.2.7",
  "embedded-sensors",
  "esp-backtrace",
  "esp-println",
  "esp32-hal",
+ "lm75",
 ]
 
 [[package]]

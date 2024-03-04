@@ -7,6 +7,7 @@ use esp_println::println;
 use embedded_sensors::bh1750::{Bh1750, config::MeasurementMode};
 use esp32_hal::i2c::I2C;
 use embedded_hal::blocking::i2c::Read; // for read_temperature_c
+use lm75::Lm75;
 
 const BH1750_ADDRESS: u8 = 0x23;
 const LM75_ADDRESS: u8 = 0x48;
@@ -36,7 +37,13 @@ fn main() -> ! {
     let mut light_sensor = Bh1750::new(BH1750_ADDRESS, &mut i2c_port).unwrap();
     light_sensor.set_measurement_mode(&mut i2c_port, MeasurementMode::ContinuouslyHighResolution2).unwrap();
 
-    let mut loop_count: u128 = 0;
+    let mut sensor = Lm75::new(&mut i2c_port, LM75_ADDRESS);
+    loop {
+        let temp_celsius = sensor.read_temperature().unwrap();
+        println!("Temperature: {}C", temp_celsius);
+    }
+
+    let mut loop_count: u64 = 0;
 
     println!("Booting...");
     loop {
