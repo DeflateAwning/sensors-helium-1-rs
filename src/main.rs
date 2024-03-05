@@ -1,12 +1,20 @@
 #![no_std]
 #![no_main]
 
+use core::f32::NAN;
+
 use esp32_hal::{clock::ClockControl, peripherals::Peripherals, IO, prelude::*, Delay};
 use esp_backtrace as _;
 use esp_println::println;
-use embedded_sensors::bh1750::{Bh1750, config::MeasurementMode};
 use esp32_hal::i2c::I2C;
-use embedded_hal::blocking::i2c::Read; // for read_temperature_c
+
+// from this project
+use sensors::{
+    temperature::read_temperature_c,
+    light::{setup_light_sensor, read_light_sensor_lx},
+    i2c_scanner::scan_i2c_devices};
+mod sensors;
+
 
 const BH1750_ADDRESS: u8 = 0x23;
 const LM75_ADDRESS: u8 = 0x48;
@@ -33,31 +41,18 @@ fn main() -> ! {
     );
 
     // setup the light sensor
-    let mut light_sensor = Bh1750::new(BH1750_ADDRESS, &mut i2c_port).unwrap();
-    light_sensor.set_measurement_mode(&mut i2c_port, MeasurementMode::ContinuouslyHighResolution2).unwrap();
+    let mut light_sensor = setup_light_sensor(&mut i2c_port, BH1750_ADDRESS).unwrap();
 
-    let mut loop_count: u128 = 0;
-
+    let mut loop_count: u64 = 0;
     println!("Booting...");
+
     loop {
-        // Start Scan at Address 1 going up to 127
-        // for addr in 1..=127 {
-        //     println!("Scanning Address {}", addr as u8);
+        println!("Starting I2C scan:\n");
+        scan_i2c_devices(&mut i2c_port).unwrap();
+        println!("Done I2C scan.\n");
 
-        //     // Scan Address
-        //     let res = i2c_port.read(addr as u8, &mut [0]);
-
-        //     // Check and Print Result
-        //     match res {
-        //         Ok(_) => println!("Device Found at Address {}", addr as u8),
-        //         Err(_) => (), //println!("No Device Found"),
-        //     }
-        // }
-
-        light_sensor.read(&mut i2c_port).unwrap();
-        let light_val: f32 = light_sensor.light_level();
-
-        let temp_celsius = read_temperature_c(&mut i2c_port, LM75_ADDRESS).unwrap();
+        let light_val: f32 = read_light_sensor_lx(&mut i2c_port, &mut light_sensor).unwrap_or(NAN);
+        let temp_celsius: f32 = read_temperature_c(&mut i2c_port, LM75_ADDRESS).unwrap_or(-100.0);
 
         println!("Loop {loop_count}, light: {light_val} lx, temp: {temp_celsius}...",
             loop_count=loop_count,
@@ -66,26 +61,5 @@ fn main() -> ! {
         delay.delay_ms(500u32);
 
         loop_count += 1;
-    }
-}
-
-pub fn read_temperature_c<T>(i2c: &mut T, address: u8) -> Result<f32, T::Error>
-where
-    T: Read,
-{
-    let mut buffer: [u8; 2] = [0u8; 2];
-    match i2c.read(address, &mut buffer) {
-        Ok(()) => {
-            let mut ret: f32 = 0.0;
-            
-            // check sign bit
-            if (buffer[0] & 0b1000_0000) != 0 {
-                ret = -128.0;
-            }
-            
-            // Source: https://github.com/elhep/stm_system_board_firmware/blob/a1b5af04b61ece350be88540e9c8bc34c01abd28/src/hardware/lm75a.rs#L4
-            Ok(ret + (buffer[0] & 0b0111_1111) as f32 + 0.5 * (buffer[0] & 0b1000_0000) as f32)
-        },
-        Err(e) => Err(e),
     }
 }
