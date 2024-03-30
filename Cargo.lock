@@ -584,11 +584,13 @@ name = "sensors-helium-1-rs"
 version = "0.1.0"
 dependencies = [
  "arrayvec",
+ "byteorder",
  "embedded-hal",
  "embedded-sensors",
  "esp-backtrace",
  "esp-println",
  "esp32-hal",
+ "nb 1.1.0",
 ]
 
 [[package]]

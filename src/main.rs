@@ -8,6 +8,8 @@ use core::f32::NAN;
 use esp32_hal::prelude::nb::block;
 use esp32_hal::uart::TxRxPins;
 use esp32_hal::{clock::ClockControl, peripherals::Peripherals, IO, prelude::*, Delay};
+use esp32_hal::{UartTx, UartRx};
+
 use esp_backtrace as _;
 use esp_println::{println, print};
 use esp32_hal::i2c::I2C;
@@ -20,6 +22,10 @@ use sensors::{
     light::{setup_light_sensor, read_light_sensor_lx},
     i2c_scanner::scan_i2c_devices};
 mod sensors;
+use lora_e5::{
+    LoRaE5, Command, Reply
+};
+mod lora_e5;
 
 
 const BH1750_ADDRESS: u8 = 0x23;
@@ -52,7 +58,7 @@ fn main() -> ! {
     let mut light_sensor = setup_light_sensor(&mut i2c_port, BH1750_ADDRESS).unwrap();
 
     // setup the LoRa UART
-    let mut lora_uart = Uart::new_with_config(
+    let lora_uart = Uart::new_with_config(
         peripherals.UART1,
         UartConfig {
             baudrate: 9600u32,
@@ -63,6 +69,10 @@ fn main() -> ! {
             io.pins.gpio16.into_floating_input(), // RX
         )),
         &clocks);
+
+    // setup the LoRaE5 driver, using the UART
+    let (lora_uart_tx, lora_uart_rx) = lora_uart.split();
+    let mut lora_e5 = LoRaE5::new(lora_uart_tx, lora_uart_rx);
 
     let mut loop_count: u64 = 0;
     println!("Booting...");
@@ -77,39 +87,49 @@ fn main() -> ! {
         let light_val: f32 = read_light_sensor_lx(&mut i2c_port, &mut light_sensor).unwrap_or(NAN);
         let temp_celsius: f32 = read_temperature_c(&mut i2c_port, LM75_ADDRESS).unwrap_or(-100.0);
 
-        writeln!(&mut lora_uart, "AT").unwrap();
-        println!("MCU->LoRa: AT");
+        // println!("Sending AT+ID command to LoRaE5...\n");
+        // match lora_e5.send_command(Command::AT_ID_READ) {
+        //     Ok(reply) => {
+        //         match reply {
+        //             Reply::AT_ID_READ(at_id_read_result) => {
+        //                 println!("Received AT+ID reply from LoRaE5: {:?}\n", at_id_read_result);
+        //             }
+        //             _ => {
+        //                 println!("Received unexpected reply from LoRaE5.\n");
+        //             }
+        //         }
+        //     }
+        //     Err(err) => {
+        //         println!("Error sending AT+ID command to LoRaE5: {:?}\n", err);
+        //     }
+        // }
+        // println!("Done sending AT+ID command to LoRaE5.\n");
 
-        // wait a sec to ensure the response is sent
-        delay.delay_ms(100u32);
-
-        let mut rx_bytes = ArrayVec::<u8, 250>::new();
-        loop {
-            match lora_uart.read() {
-                Ok(rx_byte) => {
-                    // TODO: deal with out-of-space error here
-                    rx_bytes.push(rx_byte);
-                },
-                Err(nb::Error::WouldBlock) => {
-                    // not an interesting error; just means we're out of incoming bytes
-                    break;
-                }
-                Err(e) => {
-                    // Handle other errors: print it out and break
-                    println!("LoRa->MCU: [ERROR]: {e:?}");
-                    break;
+        println!("Sending AT command to LoRaE5...\n");
+        match lora_e5.send_command(Command::CheckAlive) {
+            Ok(reply) => {
+                match reply {
+                    Reply::CheckAlive(cmd_result) => {
+                        println!("Received AT reply from LoRaE5: {:?}\n", cmd_result);
+                    }
+                    _ => {
+                        println!("Received unexpected reply from LoRaE5.\n");
+                    }
                 }
             }
+            Err(err) => {
+                println!("Error sending AT command to LoRaE5: {:?}\n", err);
+            }
         }
-        
-        println!("LoRa->MCU: {rx_bytes:?}");
-        let rec_str = core::str::from_utf8(&rx_bytes).unwrap();
-        println!("LoRa->MCU: {rec_str}");
+        println!("Done sending AT command to LoRaE5.\n");
 
-        println!("Loop {loop_count}, light: {light_val} lx, temp: {temp_celsius}, rx_count: {rec_len:?}...",
+
+
+
+
+        println!("Loop {loop_count}, light: {light_val} lx, temp: {temp_celsius}",
             loop_count = loop_count,
-            light_val = light_val,
-            rec_len = rx_bytes.len(),
+            light_val = light_val
         );
         delay.delay_ms(500u32);
 
